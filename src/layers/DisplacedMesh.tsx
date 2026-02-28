@@ -73,6 +73,13 @@ export function DisplacedMesh({ config }: Props) {
     beatAccum.current *= 0.92
     uniforms.uBeat.value = beatAccum.current
 
+    // Sync user-defined uniforms from config
+    if (config.uniforms) {
+      for (const [key, def] of Object.entries(config.uniforms)) {
+        if (uniforms[key]) uniforms[key].value = def.value
+      }
+    }
+
     // Auto-rotation — uses frame delta to avoid getDelta() triple-call bug
     if (meshRef.current) {
       meshRef.current.rotation.x += config.rotationSpeed[0] * speed * delta

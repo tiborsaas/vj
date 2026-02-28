@@ -8,16 +8,20 @@ uniform float uHue;
 uniform float uIntensity;
 uniform float uSpeed;
 uniform vec2 uResolution;
+uniform float uTerrainScale;
+uniform float uCameraHeight;
+uniform float uFogDensity;
+uniform float uFlySpeed;
 varying vec2 vUv;
 
 float terrain(vec2 p) {
-  return fbm(p * 0.3, 6, 2.0, 0.5) * 4.0;
+  return fbm(p * uTerrainScale, 6, 2.0, 0.5) * 4.0;
 }
 
 void main() {
   vec2 uv = (gl_FragCoord.xy - uResolution * 0.5) / uResolution.y;
   float t = uTime;
-  vec3 ro = vec3(t * 2.0, 3.0 + uBass * 2.0, t * 2.0);
+  vec3 ro = vec3(t * uFlySpeed, uCameraHeight + uBass * 2.0, t * uFlySpeed);
   float yaw = sin(t * 0.2) * 0.3;
   float pitch = -0.3 + uAmplitude * 0.2;
   vec3 fw = normalize(vec3(sin(yaw), pitch, cos(yaw)));
@@ -56,7 +60,7 @@ void main() {
     );
     col = hueRot * col;
     col *= 0.3 + diff * 0.7;
-    float fog = exp(-tRay * 0.03);
+    float fog = exp(-tRay * uFogDensity);
     col = mix(vec3(0.0), col, fog);
     col += uBeat * vec3(0.5, 0.5, 0.7) * fog;
   } else {

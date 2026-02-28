@@ -5,7 +5,7 @@
 import { usePresetStore, useGlobalStore } from '../engine/store'
 import type {
     LayerConfig, LayerBlendMode, MeshGeometryType, PrimitiveShape,
-    WireframeShape, ShaderUniformDef,
+    WireframeShape,
 } from '../types/layers'
 import {
     SliderField, Vec2Field, Vec3Field, ColorField, ToggleField,

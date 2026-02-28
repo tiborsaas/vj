@@ -58,6 +58,13 @@ export function ShaderPlane({ config }: Props) {
     beatAccum.current *= 0.92
     uniforms.uBeat.value = beatAccum.current
 
+    // Sync user-defined uniforms from config
+    if (config.uniforms) {
+      for (const [key, def] of Object.entries(config.uniforms)) {
+        if (uniforms[key]) uniforms[key].value = def.value
+      }
+    }
+
     // Update resolution
     const size = state.size
       ; (uniforms.uResolution.value as THREE.Vector2).set(size.width * state.viewport.dpr, size.height * state.viewport.dpr)

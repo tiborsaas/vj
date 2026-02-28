@@ -35,6 +35,9 @@ uniform float uHue;
 uniform float uIntensity;
 uniform float uSpeed;
 uniform vec2 uResolution;
+uniform float uColumns;
+uniform float uTrailLength;
+uniform float uCharDensity;
 varying vec2 vUv;
 
 float hash(float n) { return fract(sin(n) * 43758.5453); }
@@ -47,13 +50,13 @@ void main() {
   float t = uTime;
 
   // Matrix rain columns
-  float columns = 60.0;
+  float columns = uColumns;
   float colIdx = floor(uv.x * columns);
   float colPhase = hash(colIdx * 13.7) * 100.0;
   float speed = 0.5 + hash(colIdx * 7.3) * 1.5;
   float charY = fract(uv.y + t * speed + colPhase);
-  float charIdx = floor(charY * 40.0);
-  float charBright = pow(1.0 - charY, 3.0);
+  float charIdx = floor(charY * uCharDensity);
+  float charBright = pow(1.0 - charY, uTrailLength);
 
   // Random character flicker
   float flicker = step(0.5, hash2(vec2(colIdx, charIdx + floor(t * 10.0))));
@@ -298,7 +301,11 @@ export const factoryPresets: ScenePreset[] = [
         blendMode: 'normal',
         vertexShader: PASSTHROUGH_VERTEX,
         fragmentShader: VOID_TUNNEL_FRAGMENT,
-        uniforms: {},
+        uniforms: {
+          uTunnelRadius: { value: 3, min: 1, max: 8, step: 0.1, label: 'Tunnel Radius' },
+          uRepeatSize: { value: 4, min: 1, max: 8, step: 0.1, label: 'Repeat Spacing' },
+          uMarchSpeed: { value: 2, min: 0.5, max: 5, step: 0.1, label: 'March Speed' },
+        },
       },
     ],
     effects: [
@@ -328,7 +335,11 @@ export const factoryPresets: ScenePreset[] = [
         geometryArgs: [2, 64],
         vertexShader: LIQUID_VERTEX,
         fragmentShader: LIQUID_FRAGMENT,
-        uniforms: {},
+        uniforms: {
+          uNoiseScale: { value: 1.5, min: 0.5, max: 5, step: 0.1, label: 'Noise Scale' },
+          uDisplacement: { value: 1, min: 0.1, max: 3, step: 0.05, label: 'Displacement' },
+          uFresnelPower: { value: 3, min: 1, max: 8, step: 0.1, label: 'Fresnel Power' },
+        },
         wireframe: false,
         rotation: [0, 0, 0],
         rotationSpeed: [0.1, 0.15, 0.05],
@@ -359,7 +370,11 @@ export const factoryPresets: ScenePreset[] = [
         blendMode: 'normal',
         vertexShader: PASSTHROUGH_VERTEX,
         fragmentShader: GLITCH_MATRIX_FRAGMENT,
-        uniforms: {},
+        uniforms: {
+          uColumns: { value: 60, min: 20, max: 120, step: 1, label: 'Columns' },
+          uTrailLength: { value: 3, min: 1, max: 8, step: 0.1, label: 'Trail Length' },
+          uCharDensity: { value: 40, min: 10, max: 80, step: 1, label: 'Char Density' },
+        },
       },
     ],
     effects: [
@@ -418,7 +433,12 @@ export const factoryPresets: ScenePreset[] = [
         blendMode: 'normal',
         vertexShader: PASSTHROUGH_VERTEX,
         fragmentShader: TERRAIN_FRAGMENT,
-        uniforms: {},
+        uniforms: {
+          uTerrainScale: { value: 0.3, min: 0.1, max: 1, step: 0.01, label: 'Terrain Scale' },
+          uCameraHeight: { value: 3, min: 1, max: 10, step: 0.1, label: 'Camera Height' },
+          uFogDensity: { value: 0.03, min: 0.01, max: 0.1, step: 0.005, label: 'Fog Density' },
+          uFlySpeed: { value: 2, min: 0.5, max: 5, step: 0.1, label: 'Fly Speed' },
+        },
       },
     ],
     effects: [
