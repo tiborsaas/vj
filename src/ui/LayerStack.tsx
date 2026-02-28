@@ -95,6 +95,7 @@ export function createDefaultLayer(type: LayerType): LayerConfig {
                 size: 512, computeShader: '', displayShader: '',
                 computeUniforms: {}, displayUniforms: {},
                 stepsPerFrame: 4, audioInject: true,
+                seedPattern: 'random-spots',
             }
         case 'text-2d':
             return {
