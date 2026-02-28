@@ -163,7 +163,7 @@ export function FBOSimulation({ config }: Props) {
       if (audioRefs.beat) {
         const injectArr = computeUniforms.uAudioInject.value as Float32Array
         const slot = Math.floor(Math.random() * 4)
-        injectArr[slot * 2]     = Math.random()
+        injectArr[slot * 2] = Math.random()
         injectArr[slot * 2 + 1] = Math.random()
         computeUniforms.uInjectStrength.value = 0.8 + audioRefs.bands[0] * 0.5
       } else {

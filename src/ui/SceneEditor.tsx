@@ -5,10 +5,10 @@ import { LayerStack } from './LayerStack'
 import { PropertiesPanel } from './PropertiesPanel'
 
 export function SceneEditor() {
-  return (
-    <>
-      <LayerStack />
-      <PropertiesPanel />
-    </>
-  )
+    return (
+        <>
+            <LayerStack />
+            <PropertiesPanel />
+        </>
+    )
 }

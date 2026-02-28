@@ -60,7 +60,7 @@ export function ShaderPlane({ config }: Props) {
 
     // Update resolution
     const size = state.size
-    ;(uniforms.uResolution.value as THREE.Vector2).set(size.width * state.viewport.dpr, size.height * state.viewport.dpr)
+      ; (uniforms.uResolution.value as THREE.Vector2).set(size.width * state.viewport.dpr, size.height * state.viewport.dpr)
   })
 
   return (
