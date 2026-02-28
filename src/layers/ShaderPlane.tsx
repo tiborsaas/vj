@@ -12,11 +12,15 @@ interface Props {
 /**
  * ShaderPlane — fullscreen quad with custom vertex/fragment shaders.
  * Used for raymarching, procedural effects, matrix rain, terrain, tunnel, etc.
+ * Shader code is live-editable: the material is re-created whenever
+ * vertexShader or fragmentShader strings change.
  */
 export function ShaderPlane({ config }: Props) {
   const meshRef = useRef<THREE.Mesh>(null)
   const beatAccum = useRef(0)
 
+  // Re-create uniforms when the layer identity *or* the shader source changes,
+  // so a freshly compiled material always gets a clean uniform set.
   const uniforms = useMemo(() => {
     const u: Record<string, { value: unknown }> = {
       uTime: { value: 0 },
@@ -38,7 +42,7 @@ export function ShaderPlane({ config }: Props) {
     }
     return u
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [config.id])
+  }, [config.id, config.vertexShader, config.fragmentShader])
 
   useFrame((state) => {
     const speed = useGlobalStore.getState().masterSpeed
@@ -70,6 +74,10 @@ export function ShaderPlane({ config }: Props) {
       ; (uniforms.uResolution.value as THREE.Vector2).set(size.width * state.viewport.dpr, size.height * state.viewport.dpr)
   })
 
+  // Key includes blendMode (existing) + shader sources so the material
+  // is fully disposed and re-compiled whenever the user edits code.
+  const materialKey = `${config.blendMode}|${config.vertexShader}|${config.fragmentShader}`
+
   return (
     <mesh ref={meshRef} frustumCulled={false}>
       <planeGeometry args={[2, 2]} />
@@ -79,7 +87,7 @@ export function ShaderPlane({ config }: Props) {
         uniforms={uniforms}
         depthTest={false}
         depthWrite={false}
-        key={config.blendMode}
+        key={materialKey}
         {...(getBlendJSXProps(config.blendMode) as object)}
       />
     </mesh>

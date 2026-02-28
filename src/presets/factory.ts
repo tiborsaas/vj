@@ -476,6 +476,7 @@ export const factoryPresets: ScenePreset[] = [
         displayUniforms: {},
         stepsPerFrame: 4,
         audioInject: true,
+        seedPattern: 'random-spots',
       },
     ],
     effects: [
