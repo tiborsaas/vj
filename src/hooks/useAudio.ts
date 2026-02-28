@@ -1,7 +1,7 @@
 import { useRef, useEffect } from 'react'
 import { useFrame } from '@react-three/fiber'
 import { audioAnalyzer } from '../engine/AudioAnalyzer'
-import { audioRefs } from '../engine/store'
+import { audioRefs, useGlobalStore } from '../engine/store'
 import type { AudioData } from '../types'
 
 /**
@@ -21,6 +21,12 @@ export function useAudio(): React.RefObject<AudioData> {
   })
 
   useFrame((_state, delta) => {
+    // Sync global store settings to analyzer every frame (cheap, avoids subscriptions)
+    const gs = useGlobalStore.getState()
+    audioAnalyzer.setGain(gs.audioGain)
+    audioAnalyzer.setSmoothing(gs.audioSmoothing)
+    audioAnalyzer.setBeatSensitivity(gs.beatSensitivity)
+
     // Run analyzer (updates audioRefs)
     audioAnalyzer.analyze(delta)
 

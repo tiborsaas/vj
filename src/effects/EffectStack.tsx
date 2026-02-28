@@ -1,4 +1,3 @@
-'use no memo'
 import { useRef } from 'react'
 import { useFrame } from '@react-three/fiber'
 import {
@@ -9,48 +8,52 @@ import {
     Noise,
 } from '@react-three/postprocessing'
 import { BlendFunction } from 'postprocessing'
-import { useEffectStore } from '../engine/store'
-import { audioRefs } from '../engine/store'
+import { usePresetStore, audioRefs } from '../engine/store'
 import * as THREE from 'three'
 
 /**
- * EffectStack — composable post-processing chain with audio reactivity.
- * Reads from effectStore for configuration, audioRefs for real-time modulation.
+ * EffectStack — composable post-processing chain.
+ * Now reads effects from the active preset instead of a global effect store.
  */
 export function EffectStack() {
-    const bloom = useEffectStore((s) => s.bloom)
-    const chromatic = useEffectStore((s) => s.chromaticAberration)
-    const vignette = useEffectStore((s) => s.vignette)
-    const noise = useEffectStore((s) => s.noise)
+    const activePreset = usePresetStore((s) => s.presets[s.activePresetId])
+    const presetEffects = activePreset?.effects ?? []
 
     const chromaticOffset = useRef(new THREE.Vector2(0.002, 0.002))
-    const bloomIntensity = useRef(bloom.intensity)
+    const bloomIntensityRef = useRef(1.5)
+
+    // Find effects by name
+    const bloomCfg = presetEffects.find((e) => e.name === 'bloom')
+    const chromaticCfg = presetEffects.find((e) => e.name === 'chromatic')
+    const vignetteCfg = presetEffects.find((e) => e.name === 'vignette')
+    const noiseCfg = presetEffects.find((e) => e.name === 'noise')
 
     useFrame(() => {
         // Audio-modulate chromatic aberration
-        const beatBoost = audioRefs.beat ? 0.01 : 0
-        const baseOffset = chromatic.offset + audioRefs.amplitude * 0.005 + beatBoost
-        chromaticOffset.current.set(baseOffset, baseOffset)
-
+        if (chromaticCfg?.enabled) {
+            const baseOffset = ((chromaticCfg.params.offset as number) ?? 0.002) + audioRefs.amplitude * 0.005 + (audioRefs.beat ? 0.01 : 0)
+            chromaticOffset.current.set(baseOffset, baseOffset)
+        }
         // Audio-modulate bloom
-        bloomIntensity.current = bloom.intensity + audioRefs.amplitude * 0.5
+        if (bloomCfg?.enabled) {
+            bloomIntensityRef.current = ((bloomCfg.params.intensity as number) ?? 1.5) + audioRefs.amplitude * 0.5
+        }
     })
 
-    // Build effects array — EffectComposer needs non-conditional children
     const effects: React.JSX.Element[] = []
 
-    if (bloom.enabled) {
+    if (bloomCfg?.enabled) {
         effects.push(
             <Bloom
                 key="bloom"
-                intensity={bloomIntensity.current}
-                luminanceThreshold={bloom.threshold}
-                luminanceSmoothing={bloom.radius}
+                intensity={bloomIntensityRef.current}
+                luminanceThreshold={(bloomCfg.params.threshold as number) ?? 0.6}
+                luminanceSmoothing={(bloomCfg.params.radius as number) ?? 0.8}
                 mipmapBlur
             />,
         )
     }
-    if (chromatic.enabled) {
+    if (chromaticCfg?.enabled) {
         effects.push(
             <ChromaticAberration
                 key="chromatic"
@@ -61,23 +64,23 @@ export function EffectStack() {
             />,
         )
     }
-    if (vignette.enabled) {
+    if (vignetteCfg?.enabled) {
         effects.push(
             <Vignette
                 key="vignette"
-                darkness={vignette.darkness}
-                offset={vignette.offset}
+                darkness={(vignetteCfg.params.darkness as number) ?? 0.7}
+                offset={(vignetteCfg.params.offset as number) ?? 0.3}
                 blendFunction={BlendFunction.NORMAL}
             />,
         )
     }
-    if (noise.enabled) {
+    if (noiseCfg?.enabled) {
         effects.push(
             <Noise
                 key="noise"
                 premultiply
                 blendFunction={BlendFunction.ADD}
-                opacity={noise.opacity}
+                opacity={(noiseCfg.params.opacity as number) ?? 0.08}
             />,
         )
     }

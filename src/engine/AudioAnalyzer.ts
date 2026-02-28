@@ -31,16 +31,39 @@ export class AudioAnalyzer {
 
   async initMicrophone(): Promise<void> {
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+      // Request mic first so the permission dialog fires before context creation
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false })
+
+      // AudioContext must be created and resumed; browsers suspend it when
+      // created outside a direct user-gesture handler.
       this.context = new AudioContext()
       this.analyser = this.context.createAnalyser()
       this.analyser.fftSize = 2048
-      this.analyser.smoothingTimeConstant = 0.6
+      this.analyser.smoothingTimeConstant = 0.0  // We do our own smoothing
       this.source = this.context.createMediaStreamSource(stream)
       this.source.connect(this.analyser)
       this.freqData = new Uint8Array(this.analyser.frequencyBinCount)
       this.timeData = new Uint8Array(this.analyser.frequencyBinCount)
       this._isInitialized = true
+
+      // Try to resume immediately — works if a user gesture already occurred
+      if (this.context.state === 'suspended') {
+        await this.context.resume().catch(() => {})
+      }
+
+      // Fallback: resume on the next user interaction if still suspended
+      if (this.context.state === 'suspended') {
+        const resume = () => {
+          this.context?.resume()
+          window.removeEventListener('click', resume)
+          window.removeEventListener('keydown', resume)
+          window.removeEventListener('touchstart', resume)
+        }
+        window.addEventListener('click', resume, { once: true })
+        window.addEventListener('keydown', resume, { once: true })
+        window.addEventListener('touchstart', resume, { once: true })
+        console.info('VOID: AudioContext suspended — will resume on next interaction')
+      }
     } catch (err) {
       console.warn('Microphone access denied, running in demo mode:', err)
       this._isInitialized = false

@@ -6,6 +6,7 @@ import { clockRefs } from './store'
  */
 export class Clock {
   private bpm = 130
+  // @ts-expect-error needed for potential future reset functionality
   private startTime = 0
   private totalElapsed = 0
 

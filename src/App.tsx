@@ -1,12 +1,15 @@
+import { useEffect } from 'react'
 import { Canvas } from '@react-three/fiber'
 import { Conductor } from './engine/Conductor'
 import { EffectStack } from './effects/EffectStack'
-import { ControlPanel } from './controls/ControlPanel'
 import { KeyboardController } from './controls/KeyboardController'
-import { HelpOverlay } from './controls/HelpOverlay'
 import { useAudioInit } from './hooks/useAudio'
-import { Leva } from 'leva'
-import { useGlobalStore } from './engine/store'
+import { usePresetStore } from './engine/store'
+import { SceneBar } from './ui/SceneBar'
+import { SceneEditor } from './ui/SceneEditor'
+import { AudioMonitor } from './ui/AudioMonitor'
+import { factoryPresets } from './presets/factory'
+import './ui/ui.css'
 
 function AudioInitializer() {
   useAudioInit()
@@ -14,7 +17,14 @@ function AudioInitializer() {
 }
 
 export default function App() {
-  const showControls = useGlobalStore((s) => s.showControls)
+  // Seed factory presets on mount — only add ones not already in the store
+  // (persisted user edits to existing presets are preserved)
+  useEffect(() => {
+    const store = usePresetStore.getState()
+    for (const preset of factoryPresets) {
+      if (!store.presets[preset.id]) store.registerPreset(preset)
+    }
+  }, [])
 
   return (
     <>
@@ -34,23 +44,11 @@ export default function App() {
         <EffectStack />
       </Canvas>
 
-      {/* DOM overlay */}
-      <Leva
-        hidden={!showControls}
-        collapsed={false}
-        titleBar={{ title: 'VOID Controls' }}
-        theme={{
-          sizes: { rootWidth: '320px' },
-          colors: {
-            elevation1: 'rgba(0, 0, 0, 0.85)',
-            elevation2: 'rgba(10, 10, 10, 0.9)',
-            elevation3: 'rgba(20, 20, 20, 0.9)',
-          },
-        }}
-      />
-      <ControlPanel />
+      {/* DOM overlay — custom UI */}
+      <SceneBar />
+      <SceneEditor />
+      <AudioMonitor />
       <KeyboardController />
-      <HelpOverlay />
     </>
   )
 }

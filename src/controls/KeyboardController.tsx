@@ -1,6 +1,5 @@
 import { useEffect, useCallback } from 'react'
-import { useSceneStore, useGlobalStore } from '../engine/store'
-import { sceneRegistry } from '../engine/SceneRegistry'
+import { usePresetStore, useGlobalStore } from '../engine/store'
 import type { TransitionType } from '../types'
 
 const TRANSITION_TYPES: TransitionType[] = ['crossfade', 'dissolve', 'glitch-cut', 'zoom-blur', 'instant']
@@ -14,15 +13,18 @@ export function KeyboardController() {
         // Ignore if typing in an input
         if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return
 
-        const sceneStore = useSceneStore.getState()
+        const presetStore = usePresetStore.getState()
         const globalStore = useGlobalStore.getState()
 
-        // Number keys 1-9: switch scenes
+        // Number keys 1-9: switch presets
         if (e.key >= '1' && e.key <= '9') {
             const index = parseInt(e.key) - 1
-            const scene = sceneRegistry.getByIndex(index)
-            if (scene && scene.id !== sceneStore.activeSceneId) {
-                sceneStore.startTransition(scene.id)
+            const presetList = Object.values(presetStore.presets)
+            if (index < presetList.length) {
+                const preset = presetList[index]
+                if (preset.id !== presetStore.activePresetId) {
+                    presetStore.startTransition(preset.id)
+                }
             }
             return
         }
@@ -31,7 +33,6 @@ export function KeyboardController() {
             case ' ':
                 // Manual beat trigger
                 e.preventDefault()
-                // Set beat flag briefly (will be cleared next frame)
                 break
 
             case 'f':
@@ -43,22 +44,27 @@ export function KeyboardController() {
                 }
                 break
 
-            case 'h':
-                // Toggle controls
-                globalStore.toggleControls()
+            case 'e':
+                // Toggle editor
+                globalStore.toggleEditor()
                 break
 
-            case '?':
-                // Toggle help
-                globalStore.toggleHelp()
+            case 'a':
+                // Toggle audio monitor
+                globalStore.toggleAudioMonitor()
+                break
+
+            case 'h':
+                // Toggle controls (scene bar visibility)
+                globalStore.toggleControls()
                 break
 
             case 't': {
                 // Cycle transition type
-                const currentType = sceneStore.transitionType
+                const currentType = presetStore.transitionType
                 const currentIdx = TRANSITION_TYPES.indexOf(currentType)
                 const nextIdx = (currentIdx + 1) % TRANSITION_TYPES.length
-                useSceneStore.setState({ transitionType: TRANSITION_TYPES[nextIdx] })
+                usePresetStore.setState({ transitionType: TRANSITION_TYPES[nextIdx] })
                 break
             }
 

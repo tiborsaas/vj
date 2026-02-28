@@ -1,0 +1,211 @@
+import { useRef, useMemo } from 'react'
+import { useFrame } from '@react-three/fiber'
+import * as THREE from 'three'
+import { useGlobalStore, audioRefs } from '../engine/store'
+import { getBlendJSXProps } from '../utils/blendUtils'
+import type { FBOSimulationLayer } from '../types/layers'
+
+interface Props {
+  config: FBOSimulationLayer
+}
+
+const PASSTHROUGH_VERTEX = /* glsl */ `
+  varying vec2 vUv;
+  void main() {
+    vUv = uv;
+    gl_Position = vec4(position, 1.0);
+  }
+`
+
+/**
+ * FBOSimulation — ping-pong FBO simulation with compute + display pass.
+ * Used for reaction-diffusion (Membrane) and similar GPU simulations.
+ */
+export function FBOSimulation({ config }: Props) {
+  const displayRef = useRef<THREE.Mesh>(null)
+  const beatAccum = useRef(0)
+  const initialized = useRef(false)
+  const frameIndex = useRef(0)
+
+  const size = config.size
+
+  const renderTargets = useMemo(() => {
+    const options: THREE.RenderTargetOptions = {
+      minFilter: THREE.LinearFilter,
+      magFilter: THREE.LinearFilter,
+      format: THREE.RGBAFormat,
+      type: THREE.FloatType,
+    }
+    return [
+      new THREE.WebGLRenderTarget(size, size, options),
+      new THREE.WebGLRenderTarget(size, size, options),
+    ]
+  }, [size])
+
+  const computeScene = useMemo(() => new THREE.Scene(), [])
+  const computeCamera = useMemo(() => new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1), [])
+
+  const computeUniforms = useMemo(() => {
+    const u: Record<string, { value: unknown }> = {
+      uPrevState: { value: null },
+      uResolution: { value: new THREE.Vector2(size, size) },
+      uDeltaTime: { value: 1.0 },
+      uBass: { value: 0 },
+      uTreble: { value: 0 },
+      uAmplitude: { value: 0 },
+      uBeat: { value: 0 },
+      uTime: { value: 0 },
+    }
+    if (config.audioInject) {
+      u.uAudioInject = { value: new Float32Array(8) }
+      u.uInjectStrength = { value: 0 }
+    }
+    if (config.computeUniforms) {
+      for (const [key, def] of Object.entries(config.computeUniforms)) {
+        u[key] = { value: def.value }
+      }
+    }
+    return u
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [config.id, size])
+
+  const displayUniforms = useMemo(() => {
+    const u: Record<string, { value: unknown }> = {
+      uState: { value: null },
+      uHue: { value: 0 },
+      uIntensity: { value: 1 },
+      uBeat: { value: 0 },
+    }
+    if (config.displayUniforms) {
+      for (const [key, def] of Object.entries(config.displayUniforms)) {
+        u[key] = { value: def.value }
+      }
+    }
+    return u
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [config.id])
+
+  // Build compute scene
+  const computeMesh = useMemo(() => {
+    const geo = new THREE.PlaneGeometry(2, 2)
+    const mat = new THREE.ShaderMaterial({
+      vertexShader: PASSTHROUGH_VERTEX,
+      fragmentShader: config.computeShader,
+      uniforms: computeUniforms,
+    })
+    const mesh = new THREE.Mesh(geo, mat)
+    computeScene.add(mesh)
+    return mesh
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [config.id, computeScene, computeUniforms])
+
+  useFrame((state, delta) => {
+    const { gl } = state
+    const speed = useGlobalStore.getState().masterSpeed
+    const hue = useGlobalStore.getState().masterHue
+    const intensity = useGlobalStore.getState().masterIntensity
+
+    // Initialize with seed data
+    if (!initialized.current) {
+      const data = new Float32Array(size * size * 4)
+      for (let i = 0; i < size * size; i++) {
+        data[i * 4] = 1.0
+        data[i * 4 + 1] = 0.0
+        data[i * 4 + 2] = 0.0
+        data[i * 4 + 3] = 1.0
+      }
+      // Seed spots
+      for (let s = 0; s < 20; s++) {
+        const cx = Math.floor(Math.random() * size)
+        const cy = Math.floor(Math.random() * size)
+        const r = 5
+        for (let dy = -r; dy <= r; dy++) {
+          for (let dx = -r; dx <= r; dx++) {
+            if (dx * dx + dy * dy < r * r) {
+              const x = (cx + dx + size) % size
+              const y = (cy + dy + size) % size
+              const idx = (y * size + x) * 4
+              data[idx + 1] = 1.0
+            }
+          }
+        }
+      }
+      const texture = new THREE.DataTexture(data, size, size, THREE.RGBAFormat, THREE.FloatType)
+      texture.needsUpdate = true
+
+      const tmpScene = new THREE.Scene()
+      const tmpGeo = new THREE.PlaneGeometry(2, 2)
+      const tmpMat = new THREE.MeshBasicMaterial({ map: texture })
+      const tmpMesh = new THREE.Mesh(tmpGeo, tmpMat)
+      tmpScene.add(tmpMesh)
+      gl.setRenderTarget(renderTargets[0])
+      gl.render(tmpScene, computeCamera)
+      gl.setRenderTarget(null)
+      tmpGeo.dispose()
+      tmpMat.dispose()
+      texture.dispose()
+      initialized.current = true
+    }
+
+    // Update compute uniforms
+    computeUniforms.uBass.value = audioRefs.bands[0]
+    computeUniforms.uTreble.value = audioRefs.bands[4]
+    computeUniforms.uAmplitude.value = audioRefs.amplitude
+    computeUniforms.uDeltaTime.value = Math.min(delta * speed * 60, 3.0)
+    computeUniforms.uTime.value = state.clock.elapsedTime
+
+    if (audioRefs.beat) beatAccum.current = 1.0
+    beatAccum.current *= 0.9
+    computeUniforms.uBeat.value = beatAccum.current
+
+    // Wire audio injection points when enabled
+    if (config.audioInject && computeUniforms.uAudioInject && computeUniforms.uInjectStrength) {
+      if (audioRefs.beat) {
+        const injectArr = computeUniforms.uAudioInject.value as Float32Array
+        const slot = Math.floor(Math.random() * 4)
+        injectArr[slot * 2]     = Math.random()
+        injectArr[slot * 2 + 1] = Math.random()
+        computeUniforms.uInjectStrength.value = 0.8 + audioRefs.bands[0] * 0.5
+      } else {
+        const prev = computeUniforms.uInjectStrength.value as number
+        computeUniforms.uInjectStrength.value = Math.max(0, prev - 0.05)
+      }
+    }
+
+    // Ping-pong compute passes
+    const steps = config.stepsPerFrame
+    for (let i = 0; i < steps; i++) {
+      const readIdx = (frameIndex.current + i) % 2
+      const writeIdx = 1 - readIdx
+      computeUniforms.uPrevState.value = renderTargets[readIdx].texture
+      gl.setRenderTarget(renderTargets[writeIdx])
+      gl.render(computeScene, computeCamera)
+    }
+    frameIndex.current = (frameIndex.current + steps) % 2
+    gl.setRenderTarget(null)
+
+    // Display uniforms
+    const displayIdx = frameIndex.current
+    displayUniforms.uState.value = renderTargets[displayIdx].texture
+    displayUniforms.uHue.value = hue
+    displayUniforms.uIntensity.value = intensity * config.opacity
+    displayUniforms.uBeat.value = beatAccum.current
+
+    void computeMesh // keep alive
+  })
+
+  return (
+    <mesh ref={displayRef} frustumCulled={false}>
+      <planeGeometry args={[2, 2]} />
+      <shaderMaterial
+        vertexShader={PASSTHROUGH_VERTEX}
+        fragmentShader={config.displayShader}
+        uniforms={displayUniforms}
+        depthTest={false}
+        depthWrite={false}
+        key={config.blendMode}
+        {...(getBlendJSXProps(config.blendMode) as object)}
+      />
+    </mesh>
+  )
+}
