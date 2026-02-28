@@ -2,12 +2,13 @@ uniform float uTime;
 uniform float uHue;
 uniform float uIntensity;
 uniform float uBeat;
+uniform float uFresnelPower;
 varying vec3 vNormal;
 varying vec3 vWorldPos;
 varying float vDisplacement;
 void main() {
   vec3 viewDir = normalize(cameraPosition - vWorldPos);
-  float fresnel = pow(1.0 - max(dot(viewDir, vNormal), 0.0), 3.0);
+  float fresnel = pow(1.0 - max(dot(viewDir, vNormal), 0.0), uFresnelPower);
   vec3 baseColor = vec3(0.8, 0.85, 0.9);
   float hueAngle = uHue * 6.28318;
   float c = cos(hueAngle);

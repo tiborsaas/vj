@@ -10,23 +10,26 @@ uniform float uHue;
 uniform float uIntensity;
 uniform float uSpeed;
 uniform vec2 uResolution;
+uniform float uTunnelRadius;
+uniform float uRepeatSize;
+uniform float uMarchSpeed;
 varying vec2 vUv;
 
 float map(vec3 p) {
-  p.z += uTime * 2.0;
-  vec3 rep = opRep(p, vec3(4.0, 4.0, 4.0));
+  p.z += uTime * uMarchSpeed;
+  vec3 rep = opRep(p, vec3(uRepeatSize, uRepeatSize, uRepeatSize));
   float columns = sdCylinder(rep, 2.0, 0.3 + uBass * 0.2);
   float twist = sin(p.z * 0.3 + uTime * 0.5) * 0.5;
   rep.xy = rot2(twist) * rep.xy;
   columns = min(columns, sdBox(rep, vec3(0.2 + uTreble * 0.3)));
   float warp = fbm(p * 0.5 + uTime * 0.1, 3, 2.0, 0.5) * uAmplitude * 2.0;
-  float tunnel = -(length(p.xy) - 3.0 - warp);
+  float tunnel = -(length(p.xy) - uTunnelRadius - warp);
   return opSmoothUnion(columns, tunnel, 0.5);
 }
 
 void main() {
   vec2 uv = (gl_FragCoord.xy - uResolution * 0.5) / uResolution.y;
-  vec3 ro = vec3(0.0, 0.0, uTime * 2.0);
+  vec3 ro = vec3(0.0, 0.0, uTime * uMarchSpeed);
   vec3 rd = normalize(vec3(uv, 1.0));
   float t = 0.0;
   for (int i = 0; i < 80; i++) {
