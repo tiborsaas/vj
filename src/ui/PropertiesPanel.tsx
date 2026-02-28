@@ -5,7 +5,7 @@
 import { usePresetStore, useGlobalStore } from '../engine/store'
 import type {
     LayerConfig, LayerBlendMode, MeshGeometryType, PrimitiveShape,
-    WireframeShape, ShaderUniformDef,
+    WireframeShape, FBOSeedPattern,
 } from '../types/layers'
 import {
     SliderField, Vec2Field, Vec3Field, ColorField, ToggleField,
@@ -48,6 +48,14 @@ function ShaderPlanePanel({ layer, update }: PanelProps<'shader-plane'>) {
 
     return (
         <>
+            <SectionTitle>Vertex Shader</SectionTitle>
+            <TextareaField label="GLSL" value={config.vertexShader}
+                onChange={(v) => update({ vertexShader: v })} />
+
+            <SectionTitle>Fragment Shader</SectionTitle>
+            <TextareaField label="GLSL" value={config.fragmentShader}
+                onChange={(v) => update({ fragmentShader: v })} />
+
             <SectionTitle>Shader Uniforms</SectionTitle>
             <UniformsEditor uniforms={config.uniforms} onChange={patchUniform} />
             {Object.keys(config.uniforms).length === 0 && (
@@ -237,6 +245,15 @@ function FBOSimulationPanel({ layer, update }: PanelProps<'fbo-simulation'>) {
             <SliderField label="Steps/Frame" value={config.stepsPerFrame} min={1} max={16} step={1}
                 onChange={(v) => update({ stepsPerFrame: v })} />
             <ToggleField label="Audio Inject" value={config.audioInject} onChange={(v) => update({ audioInject: v })} />
+            <SelectField label="Seed Pattern"
+                value={config.seedPattern}
+                options={([
+                    { value: 'random-spots', label: 'Random Spots' },
+                    { value: 'center-seed', label: 'Center Seed' },
+                    { value: 'gradient', label: 'Gradient' },
+                    { value: 'noise', label: 'Noise' },
+                ] as { value: FBOSeedPattern; label: string }[])}
+                onChange={(v) => update({ seedPattern: v })} />
 
             {Object.keys(config.computeUniforms).length > 0 && (
                 <>

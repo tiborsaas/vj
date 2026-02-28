@@ -3,7 +3,7 @@ import { useFrame } from '@react-three/fiber'
 import * as THREE from 'three'
 import { useGlobalStore, audioRefs } from '../engine/store'
 import { getBlendJSXProps } from '../utils/blendUtils'
-import type { FBOSimulationLayer } from '../types/layers'
+import type { FBOSimulationLayer, FBOSeedPattern } from '../types/layers'
 
 interface Props {
   config: FBOSimulationLayer
@@ -17,9 +17,94 @@ const PASSTHROUGH_VERTEX = /* glsl */ `
   }
 `
 
+// ─── Seed pattern generators ─────────────────────────────────────────
+
+function generateSeedData(pattern: FBOSeedPattern, size: number): Float32Array {
+  const data = new Float32Array(size * size * 4)
+
+  switch (pattern) {
+    case 'random-spots': {
+      // Default reaction-diffusion seeding: fill with A=1, then sprinkle B spots
+      for (let i = 0; i < size * size; i++) {
+        data[i * 4] = 1.0
+        data[i * 4 + 1] = 0.0
+        data[i * 4 + 2] = 0.0
+        data[i * 4 + 3] = 1.0
+      }
+      for (let s = 0; s < 20; s++) {
+        const cx = Math.floor(Math.random() * size)
+        const cy = Math.floor(Math.random() * size)
+        const r = 5
+        for (let dy = -r; dy <= r; dy++) {
+          for (let dx = -r; dx <= r; dx++) {
+            if (dx * dx + dy * dy < r * r) {
+              const x = (cx + dx + size) % size
+              const y = (cy + dy + size) % size
+              const idx = (y * size + x) * 4
+              data[idx + 1] = 1.0
+            }
+          }
+        }
+      }
+      break
+    }
+    case 'center-seed': {
+      // Single large seed in the centre — good for radial simulations
+      for (let i = 0; i < size * size; i++) {
+        data[i * 4] = 1.0
+        data[i * 4 + 3] = 1.0
+      }
+      const cx = Math.floor(size / 2)
+      const cy = Math.floor(size / 2)
+      const r = Math.floor(size * 0.06)
+      for (let dy = -r; dy <= r; dy++) {
+        for (let dx = -r; dx <= r; dx++) {
+          if (dx * dx + dy * dy < r * r) {
+            const x = (cx + dx + size) % size
+            const y = (cy + dy + size) % size
+            const idx = (y * size + x) * 4
+            data[idx + 1] = 1.0
+          }
+        }
+      }
+      break
+    }
+    case 'gradient': {
+      // Smooth gradient — useful for fluid / heat-map simulations
+      for (let y = 0; y < size; y++) {
+        for (let x = 0; x < size; x++) {
+          const idx = (y * size + x) * 4
+          data[idx] = x / size
+          data[idx + 1] = y / size
+          data[idx + 2] = 0.0
+          data[idx + 3] = 1.0
+        }
+      }
+      break
+    }
+    case 'noise': {
+      // Per-pixel random values — good for noise-driven simulations
+      for (let i = 0; i < size * size; i++) {
+        data[i * 4] = Math.random()
+        data[i * 4 + 1] = Math.random()
+        data[i * 4 + 2] = 0.0
+        data[i * 4 + 3] = 1.0
+      }
+      break
+    }
+  }
+
+  return data
+}
+
+// ─── Component ───────────────────────────────────────────────────────
+
 /**
  * FBOSimulation — ping-pong FBO simulation with compute + display pass.
  * Used for reaction-diffusion (Membrane) and similar GPU simulations.
+ *
+ * The `seedPattern` field selects the initial state written into the
+ * first render-target before the compute loop begins.
  */
 export function FBOSimulation({ config }: Props) {
   const displayRef = useRef<THREE.Mesh>(null)
@@ -105,31 +190,9 @@ export function FBOSimulation({ config }: Props) {
     const hue = useGlobalStore.getState().masterHue
     const intensity = useGlobalStore.getState().masterIntensity
 
-    // Initialize with seed data
+    // Initialize with seed data using the configured pattern
     if (!initialized.current) {
-      const data = new Float32Array(size * size * 4)
-      for (let i = 0; i < size * size; i++) {
-        data[i * 4] = 1.0
-        data[i * 4 + 1] = 0.0
-        data[i * 4 + 2] = 0.0
-        data[i * 4 + 3] = 1.0
-      }
-      // Seed spots
-      for (let s = 0; s < 20; s++) {
-        const cx = Math.floor(Math.random() * size)
-        const cy = Math.floor(Math.random() * size)
-        const r = 5
-        for (let dy = -r; dy <= r; dy++) {
-          for (let dx = -r; dx <= r; dx++) {
-            if (dx * dx + dy * dy < r * r) {
-              const x = (cx + dx + size) % size
-              const y = (cy + dy + size) % size
-              const idx = (y * size + x) * 4
-              data[idx + 1] = 1.0
-            }
-          }
-        }
-      }
+      const data = generateSeedData(config.seedPattern, size)
       const texture = new THREE.DataTexture(data, size, size, THREE.RGBAFormat, THREE.FloatType)
       texture.needsUpdate = true
 

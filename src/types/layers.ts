@@ -119,6 +119,8 @@ export interface WireframeGeometryLayer extends LayerBase {
 // ─── FBO Simulation ──────────────────────────────────────────────────
 // Ping-pong FBO simulation (reaction-diffusion, fluid, etc.)
 
+export type FBOSeedPattern = 'random-spots' | 'center-seed' | 'gradient' | 'noise'
+
 export interface FBOSimulationLayer extends LayerBase {
   type: 'fbo-simulation'
   size: number
@@ -128,6 +130,7 @@ export interface FBOSimulationLayer extends LayerBase {
   displayUniforms: Record<string, ShaderUniformDef>
   stepsPerFrame: number
   audioInject: boolean
+  seedPattern: FBOSeedPattern
 }
 
 // ─── Text 2D ─────────────────────────────────────────────────────────
