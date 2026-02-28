@@ -19,6 +19,17 @@ const PASSTHROUGH_VERTEX = /* glsl */ `
 
 // ─── Seed pattern generators ─────────────────────────────────────────
 
+/**
+ * Generate initial seed data for the FBO simulation.
+ *
+ * @param pattern - The seeding strategy to use:
+ *   - `'random-spots'`: Fill with chemical A, scatter small circular B-spots randomly.
+ *   - `'center-seed'`: Fill with A, place a single large B-spot in the center.
+ *   - `'gradient'`: Smooth X/Y gradient across R and G channels.
+ *   - `'noise'`: Per-pixel random values in R and G channels.
+ * @param size - Width and height of the square texture (in pixels).
+ * @returns A Float32Array of length `size * size * 4` with RGBA float data.
+ */
 function generateSeedData(pattern: FBOSeedPattern, size: number): Float32Array {
   const data = new Float32Array(size * size * 4)
 
@@ -49,7 +60,7 @@ function generateSeedData(pattern: FBOSeedPattern, size: number): Float32Array {
       break
     }
     case 'center-seed': {
-      // Single large seed in the centre — good for radial simulations
+      // Single large seed in the center — good for radial simulations
       for (let i = 0; i < size * size; i++) {
         data[i * 4] = 1.0
         data[i * 4 + 3] = 1.0
